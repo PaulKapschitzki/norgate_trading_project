@@ -1,22 +1,24 @@
-# strategies/mean_reversion.py
 class MeanReversionStrategy:
     def generate_signals(self, df):
-        # Berechnung der Signale
+        df["ma20"] = df["close"].rolling(20).mean()
+        # Signal: Einstieg, wenn Schlusskurs unter dem MA20 liegt
+        df["signal"] = df["close"] < df["ma20"]
         return df
 
     def backtest(self, df):
-        # Logik des Backtests
-        return {"total_trades": len(df)}
+        signals = self.generate_signals(df)
+        trades = signals[signals["signal"]]
+        # Berechne einfache Kennzahlen (hier nur Beispiel)
+        return {"total_trades": len(trades)}
 
-# Beispiel in strategies/mean_reversion.py
-# Zum Testen der einzelnen Datei muss if __name__ == "__main__": vorhanden sein
 if __name__ == "__main__":
+    # Testcode für diese Strategie
     import pandas as pd
-    # Erstelle ein Dummy-DataFrame
-    df = pd.DataFrame({
-        "close": [10, 12, 11, 13, 12],
-        "date": pd.date_range("2025-01-01", periods=5)
-    })
-    strategy = MeanReversionStrategy()
-    df = strategy.generate_signals(df)
+    data = {
+        "close": [100, 98, 97, 95, 96, 94, 93, 92, 95, 97],
+        "date": pd.date_range("2025-01-01", periods=10)
+    }
+    df = pd.DataFrame(data)
+    strat = MeanReversionStrategy()
+    df = strat.generate_signals(df)
     print(df)
