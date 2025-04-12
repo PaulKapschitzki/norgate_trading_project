@@ -14,19 +14,27 @@ def download_stock_data(symbol, start_date, end_date):
     padding_setting = norgatedata.PaddingType.NONE
     timeseriesformat = 'pandas-dataframe'
     
-    pricedata = norgatedata.price_timeseries(
-        symbol,
-        stock_price_adjustment_setting=priceadjust,
-        padding_setting=padding_setting,
-        start_date=start_date,
-        end_date=end_date,
-        timeseriesformat=timeseriesformat
-    )
-    
-    return pricedata
-
-start_date = pd.Timestamp('2024-01-01')
-end_date = pd.Timestamp('2025-01-01')
+    try:
+        # Versuche, die Preisdaten abzurufen
+        pricedata = norgatedata.price_timeseries(
+            symbol,
+            stock_price_adjustment_setting=priceadjust,
+            padding_setting=padding_setting,
+            start_date=start_date,
+            end_date=end_date,
+            timeseriesformat=timeseriesformat
+        )
+        
+        # Überprüfe, ob die Rückgabe None oder leer ist
+        if pricedata is None or len(pricedata) == 0:
+            logging.warning(f"No data returned for {symbol}.")
+            return None
+        
+        return pricedata
+    except Exception as e:
+        # Protokolliere den Fehler und gib None zurück
+        logging.error(f"Error downloading data for {symbol}: {e}")
+        return None
 
 # aapl_data = download_stock_data('AAPL', start_date, end_date)
 # tsla_data = download_stock_data('TSLA', start_date, end_date)
@@ -108,11 +116,15 @@ def add_sector_info(symbol, data):
 def get_all_market_symbols():
     logging.info("Retrieving all symbols from US Equities and US Equities Delisted...")
     
-    us_equities = norgatedata.database_symbols('US Equities')
-    us_delisted = norgatedata.database_symbols('US Equities Delisted')
-    
-    logging.info(f"Retrieved {len(us_equities)} active symbols and {len(us_delisted)} delisted symbols.")
-    return us_equities, us_delisted
+    try:
+        us_equities = norgatedata.database_symbols('US Equities')
+        us_delisted = norgatedata.database_symbols('US Equities Delisted')
+
+        logging.info(f"Retrieved {len(us_equities)} active symbols and {len (us_delisted)} delisted symbols.")
+        return us_equities, us_delisted
+    except Exception as e:
+        logging.error(f"Error retrieving symbols: {e}")
+        return [], []
 
 active_symbols, delisted_symbols = get_all_market_symbols()
 
@@ -169,23 +181,29 @@ else:
 # Step 9
 # Define a function to add Security Names to the Data
 def add_security_name(data):
-    unique_symbols = data['Symbol'].unique() 
+    if 'Symbol' not in data.columns:
+        logging.error("The 'Symbol' column is missing in the DataFrame.")
+        return data  # Gib den unveränderten DataFrame zurück
     
+    unique_symbols = data['Symbol'].unique()    
     security_names = {}
     
     for symbol in unique_symbols:
-        logging.info(f"Fetching security name for {symbol}...")
-        
-        security_name = norgatedata.security_name(symbol)
-        
+        logging.info(f"Fetching security name for {symbol}...")        
+        security_name = norgatedata.security_name(symbol)        
         security_names[symbol] = security_name
     
     data['Security_Name'] = data['Symbol'].map(security_names)
     
     return data
 
-all_active_data = add_security_name(all_active_data)
-all_delisted_data = add_security_name(all_delisted_data)
+if all_active_data.empty:
+    logging.warning("all_active_data is empty. Skipping add_security_name.")
+else:
+    print("all_active_data columns:", all_active_data.columns)
+    print("all_active_data head:", all_active_data.head())
+    all_active_data = add_security_name(all_active_data)
+    all_delisted_data = add_security_name(all_delisted_data)
 
 all_active_data.head()
 
@@ -249,8 +267,11 @@ def check_index_constituency(symbol, data):
     
     return data
 
-active_symbols = all_active_data['Symbol'].unique()
-delisted_symbols = all_delisted_data['Symbol'].unique()
+if all_active_data.empty:
+    logging.warning("all_active_data is empty. Skipping check_index_constituency.")
+else:
+    active_symbols = all_active_data['Symbol'].unique()
+    delisted_symbols = all_delisted_data['Symbol'].unique()
 
 logging.info("Checking index constituency for active stocks...")
 processed_active_data = []
