@@ -1,40 +1,14 @@
 import pandas as pd
 import logging
 import norgatedata
+from utils.data_downloader import download_all_stock_data
+from utils.symbol_utils import add_security_name, add_sector_info
 
 # Step 1
 # Set up logging to display log messages in the console
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Step 2
-# Define a function to download stock data for a given symbol and date range
-def download_stock_data(symbol, start_date, end_date):
-    logging.info(f"Downloading data for {symbol} from {start_date} to {end_date}...")
-    priceadjust = norgatedata.StockPriceAdjustmentType.TOTALRETURN
-    padding_setting = norgatedata.PaddingType.NONE
-    timeseriesformat = 'pandas-dataframe'
-    
-    try:
-        # Versuche, die Preisdaten abzurufen
-        pricedata = norgatedata.price_timeseries(
-            symbol,
-            stock_price_adjustment_setting=priceadjust,
-            padding_setting=padding_setting,
-            start_date=start_date,
-            end_date=end_date,
-            timeseriesformat=timeseriesformat
-        )
-        
-        # Überprüfe, ob die Rückgabe None oder leer ist
-        if pricedata is None or len(pricedata) == 0:
-            logging.warning(f"No data returned for {symbol}.")
-            return None
-        
-        return pricedata
-    except Exception as e:
-        # Protokolliere den Fehler und gib None zurück
-        logging.error(f"Error downloading data for {symbol}: {e}")
-        return None
 
 # aapl_data = download_stock_data('AAPL', start_date, end_date)
 # tsla_data = download_stock_data('TSLA', start_date, end_date)
@@ -43,12 +17,7 @@ def download_stock_data(symbol, start_date, end_date):
 # aapl_data.head()
 
 # Step 3
-# Define a function to add Company Names to the Downloaded Data
-def add_security_name(symbol, data):
-    security_name = norgatedata.security_name(symbol)
-    data['Security_Name'] = security_name
-    logging.info(f"Added security name for {symbol}: {security_name}")
-    return data
+
 
 # aapl_data = add_security_name('AAPL', aapl_data)
 # tsla_data = add_security_name('TSLA', tsla_data)
@@ -57,12 +26,7 @@ def add_security_name(symbol, data):
 # aapl_data.head()
 
 # Step 4
-# Define a function to add sector information to the DataFrame
-def add_sector_info(symbol, data):
-    sector = norgatedata.classification_at_level(symbol, 'GICS', 'Name', level=1)
-    data['Sector'] = sector
-    logging.info(f"Added sector information for {symbol}: {sector}")
-    return data
+
 
 # aapl_data = add_sector_info('AAPL', aapl_data)
 # tsla_data = add_sector_info('TSLA', tsla_data)
@@ -112,24 +76,6 @@ def add_sector_info(symbol, data):
 # aapl_data.head(5)
 
 # Step 6
-# Define a function to retrieve all symbols from the US Equities and US Equities Delisted databases
-def get_all_market_symbols():
-    logging.info("Retrieving all symbols from US Equities and US Equities Delisted...")
-    
-    try:
-        us_equities = norgatedata.database_symbols('US Equities')
-        us_delisted = norgatedata.database_symbols('US Equities Delisted')
-
-        logging.info(f"Retrieved {len(us_equities)} active symbols and {len (us_delisted)} delisted symbols.")
-        return us_equities, us_delisted
-    except Exception as e:
-        logging.error(f"Error retrieving symbols: {e}")
-        return [], []
-
-active_symbols, delisted_symbols = get_all_market_symbols()
-
-print("Active symbols:", active_symbols[:5])
-print("Delisted symbols:", delisted_symbols[:5])
 
 # Step 7
 # Define a function to filter out non-stock symbols
@@ -144,21 +90,7 @@ delisted_stocks = filter_stocks(delisted_symbols)
 print(f"Active stocks: {len(active_stocks)}, Delisted stocks: {len(delisted_stocks)}")
 
 # Step 8
-# Define a function to download stock data for multiple symbols
-def download_all_stock_data(symbols, start_date, end_date):
 
-    all_data = []
-    
-    for symbol in symbols:
-        logging.info(f"Downloading data for {symbol}...")
-        data = download_stock_data(symbol, start_date, end_date)
-        
-        if data is not None:
-            data['Symbol'] = symbol  # Add the symbol as a column
-            all_data.append(data)
-    
-    # Combine all data into a single DataFrame (keeping Date as index by default)
-    return pd.concat(all_data, ignore_index=False) if all_data else pd.DataFrame()
 
 # Download all active and delisted stock data
 logging.info("Downloading active stock data...")
