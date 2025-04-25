@@ -53,46 +53,47 @@ def count_equity_symbols(symbols: list) -> int:
             
     return counter
 
-def get_symbol_details(symbols: list) -> list:
-    """
-    Holt Details (Symbol, Firmenname) für jedes Aktien-Symbol.
+# def get_symbol_details(symbols: list) -> list:
+#     """
+#     Holt Details (Symbol, Firmenname) für jedes Aktien-Symbol.
     
-    Args:
-        symbols: Liste der zu prüfenden Symbole
+#     Args:
+#         symbols: Liste der zu prüfenden Symbole
         
-    Returns:
-        Liste von Tupeln (Symbol, Firmenname, ist_aktie)
-    """
-    details = []
-    for symbol in symbols:
-        try:
-            if norgatedata.subtype1(symbol) == 'Equity':
-                security_name = norgatedata.security_name(symbol)
-                details.append((symbol, security_name))
-                # logging.info(f"Symbol: {symbol:<6} | Firma: {security_name}")
-        except Exception as e:
-            logging.warning(f"Fehler beim Abrufen der Details für {symbol}: {str(e)}")
-            continue
-    return details
+#     Returns:
+#         Liste von Tupeln (Symbol, Firmenname, ist_aktie)
+#     """
+#     details = []
+#     for symbol in symbols:
+#         try:
+#             if norgatedata.subtype1(symbol) == 'Equity':
+#                 security_name = norgatedata.security_name(symbol)
+#                 details.append((symbol, security_name))
+#                 # logging.info(f"Symbol: {symbol:<6} | Firma: {security_name}")
+#         except Exception as e:
+#             logging.warning(f"Fehler beim Abrufen der Details für {symbol}: {str(e)}")
+#             continue
+#     return details
 
 if __name__ == '__main__':
     # Aktive Aktien
     print("\n=== Aktive Aktien ===")
     active_database = 'US Equities'
     active_symbols = get_database_symbols(active_database)
-    active_details = get_symbol_details(active_symbols)
-    print(f"\nAnzahl aktiver Aktien in {active_database}: {len(active_details)}")
+    # active_details = get_symbol_details(active_symbols)
+    # print(f"\nAnzahl aktiver Aktien in {active_database}: {len(active_details)}")
     
     # Delistete Aktien
     print("\n=== Delistete Aktien ===")
     delisted_database = 'US Equities Delisted'
     delisted_symbols = get_database_symbols(delisted_database)
-    delisted_details = get_symbol_details(delisted_symbols)
-    print(f"\nAnzahl delisteter Aktien in {delisted_database}: {len(delisted_details)}")
+    # delisted_details = get_symbol_details(delisted_symbols)
+    # print(f"\nAnzahl delisteter Aktien in {delisted_database}: {len(delisted_details)}")
     
     # Gesamtstatistik
-    total_count = len(active_details) + len(delisted_details)
+    # total_count = len(active_details) + len(delisted_details)
+    total_count = len(active_symbols) + len(delisted_symbols)
     print(f"\n=== Zusammenfassung ===")
     print(f"Gesamtanzahl aller Aktien: {total_count}")
-    print(f"- Davon aktiv: {len(active_details)}")
-    print(f"- Davon delistet: {len(delisted_details)}")
+    print(f"- Davon aktiv: {len(active_symbols)}")
+    print(f"- Davon delistet: {len(delisted_symbols)}")

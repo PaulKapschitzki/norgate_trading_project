@@ -5,7 +5,8 @@ from norgate_database_symbols import get_database_symbols
 from data_downloader import download_all_stock_data
 from symbol_utils import add_security_name, add_sector_info
 from typing import Optional, List, Tuple
-from norgate_database_symbols import get_database_symbols, get_symbol_details
+from norgate_database_symbols import get_database_symbols
+# from norgate_database_symbols import get_database_symbols, get_symbol_details
 
 # Step 1
 # Set up logging to display log messages in the console
@@ -290,27 +291,29 @@ def fetch_all_ohlcv_data(start_date: str, end_date: str,
     """
     # Aktive Symbole laden
     active_symbols = get_database_symbols('US Equities')
-    active_details = get_symbol_details(active_symbols)
+    # active_details = get_symbol_details(active_symbols)
     
     # Delistete Symbole laden  
     delisted_symbols = get_database_symbols('US Equities Delisted')
-    delisted_details = get_symbol_details(delisted_symbols)
+    # delisted_details = get_symbol_details(delisted_symbols)
     
     # Alle Details kombinieren
-    all_details = active_details + delisted_details
+    # all_details = active_details + delisted_details
+    all_symbols = active_symbols + delisted_symbols
     
     # DataFrame für alle Daten
     all_data = []
     
     # Fortschrittsanzeige
-    total = len(all_details)
-    for i, (symbol, name) in enumerate(all_details, 1):
+    total = len(all_symbols)
+    for i, (symbol) in enumerate(all_symbols, 1):
+    # for i, (symbol, name) in enumerate(all_symbols, 1):
         logging.info(f"Fortschritt: {i}/{total} ({i/total*100:.1f}%)")
         
         df = fetch_ohlcv_data(symbol, start_date, end_date)
         if df is not None:
             # Firmenname hinzufügen
-            df['Company_Name'] = name
+            # df['Company_Name'] = name
             all_data.append(df)
     
     if not all_data:
@@ -324,7 +327,8 @@ def fetch_all_ohlcv_data(start_date: str, end_date: str,
     try:
         final_df.to_parquet(save_path)
         logging.info(f"Daten erfolgreich gespeichert unter: {save_path}")
-        logging.info(f"Datensatz enthält {len(final_df)} Zeilen für {len(all_details)} Aktien")
+        logging.info(f"Datensatz enthält {len(final_df)} Zeilen für {len(all_symbols)} Aktien")
+        # logging.info(f"Datensatz enthält {len(final_df)} Zeilen für {len(all_details)} Aktien")
     except Exception as e:
         logging.error(f"Fehler beim Speichern der Daten: {str(e)}")
 
