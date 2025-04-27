@@ -1,0 +1,9 @@
+{
+  "python.analysis.extraPaths": [
+    "./backtesting",
+    "./strategies",
+    "./examples",
+    "./data",
+    "./utils"
+  ]
+}
