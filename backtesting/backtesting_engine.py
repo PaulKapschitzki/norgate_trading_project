@@ -7,7 +7,7 @@ class BacktestingEngine:
     
     def __init__(self):
         self.positions = {}
-        self.cash = 100000  # Startkapital
+        self.cash = 10000  # Startkapital
         self.position_size = 0.1  # 10% pro Position
         
     def calculate_position_size(self, price: float) -> int:
