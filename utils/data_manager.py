@@ -1,29 +1,57 @@
-import sys
 import os
+import re
+import sys
+import logging
 import pandas as pd
 from datetime import datetime
-import logging
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 
 # Projektpfad zum Python Path hinzufügen
-project_root = 'e:\\Eigene_Daten\\Programmierung\\Python\\Projects\\norgate_trading_project'
-sys.path.append(project_root)
+project_root = os.path.abspath('e:\\Eigene_Daten\\Programmierung\\Python\\Projects\\norgate_trading_project')
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from utils.norgate_watchlist_symbols import get_watchlist_symbols
+
+def sanitize_filename(name: str) -> str:
+    """
+    Wandelt einen Watchlist-Namen in einen gültigen Dateinamen um.
+    
+    Args:
+        name: Der ursprüngliche Watchlist-Name
+        
+    Returns:
+        Bereinigter Dateiname ohne ungültige Zeichen
+    """
+    # Ersetze Leerzeichen und Sonderzeichen
+    sanitized = re.sub(r'[\s&]+', '_', name)
+    # Entferne ungültige Zeichen
+    sanitized = re.sub(r'[^\w\-_]', '', sanitized)
+    return sanitized.lower()
 
 class EnhancedMarketDataManager:
-    def __init__(self, cache_file=None, max_age_days=1):
+    def __init__(self, watchlist_name: Optional[str] = None, cache_file=None, max_age_days=1):
         """
         Initialisiert den erweiterten Market Data Manager.
         
         Args:
-            cache_file: Pfad zur Parquet-Datei (absolute Pfadangabe)
+            watchlist_name: Optional, Name der Norgate Watchlist
+            cache_file: Optional, Pfad zur Parquet-Datei (absolute Pfadangabe)
             max_age_days: Maximales Alter der Cache-Datei in Tagen
         """
         if cache_file is None:
-            # Korrekter Pfad zur market_data.parquet im data/raw/ Verzeichnis
-            cache_file = os.path.join(project_root, 'data', 'raw', 'market_data.parquet')
+            if watchlist_name is not None:
+                # Erstelle einen sprechenden Dateinamen für die Watchlist
+                filename = f"{sanitize_filename(watchlist_name)}_data.parquet"
+                cache_file = os.path.join(project_root, 'data', 'raw', filename)
+            else:
+                # Standard-Datei für allgemeine Marktdaten
+                cache_file = os.path.join(project_root, 'data', 'raw', 'database_market_data.parquet')
+                
         self.cache_file = Path(cache_file)
         self.max_age_days = max_age_days
+        self.watchlist_name = watchlist_name
         
     def is_cache_valid(self) -> bool:
         """Prüft ob Cache-Datei existiert und aktuell ist."""
@@ -56,7 +84,6 @@ class EnhancedMarketDataManager:
         # Lade alle Daten aus dem Cache
         if self.is_cache_valid():
             logging.info(f"Lade Daten aus Cache: {self.cache_file}")
-            print(f"Cache file path being used for reading: {self.cache_file}")
             df = pd.read_parquet(self.cache_file)
             
             # Index zu DateTime konvertieren falls nötig
@@ -65,8 +92,7 @@ class EnhancedMarketDataManager:
         else:
             logging.info("Aktualisiere Cache mit neuen Daten...")
             # Importiere mit vollem Pfad
-            sys.path.insert(0, os.path.join(project_root, 'data', 'raw'))
-            import utils.data_fetcher as data_fetcher
+            from utils.data_fetcher import fetch_all_ohlcv_data, fetch_all_ohlcv_data_from_list
             
             # Definiere Standard-Zeitraum wenn nicht angegeben
             if end_date is None:
@@ -74,8 +100,12 @@ class EnhancedMarketDataManager:
             if start_date is None:
                 start_date = f"{datetime.now().year - 5}-01-01"
             
-            # Hole neue Daten
-            data_fetcher.fetch_all_ohlcv_data(start_date, end_date, str(self.cache_file))
+            # Hole neue Daten (abhängig davon ob eine Watchlist spezifiziert wurde)
+            if self.watchlist_name:
+                fetch_all_ohlcv_data_from_list(self.watchlist_name, start_date, end_date, str(self.cache_file))
+            else:
+                fetch_all_ohlcv_data(start_date, end_date, str(self.cache_file))
+                
             df = pd.read_parquet(self.cache_file)
             
         # Filtere nach Datum wenn angegeben
@@ -103,52 +133,21 @@ class EnhancedMarketDataManager:
             
         return df
 
-# class MarketDataManager:
-#     def __init__(self, cache_file="market_data.parquet", max_age_days=1):
-#         """
-#         Initialisiert den Market Data Manager.
-        
-#         Args:
-#             cache_file: Pfad zur Parquet-Datei
-#             max_age_days: Maximales Alter der Cache-Datei in Tagen
-#         """
-#         self.cache_file = Path(cache_file)
-#         self.max_age_days = max_age_days
-        
-#     def is_cache_valid(self) -> bool:
-#         """Prüft ob Cache-Datei existiert und aktuell ist."""
-#         if not self.cache_file.exists():
-#             logging.info("Cache-Datei existiert nicht.")
-#             return False
-            
-#         # Prüfe Alter der Datei
-#         file_age = datetime.now() - datetime.fromtimestamp(self.cache_file.stat().st_mtime)
-#         if file_age.days > self.max_age_days:
-#             logging.info(f"Cache ist älter als {self.max_age_days} Tage.")
-#             return False
-            
-#         return True
-        
-#     def load_market_data(self) -> pd.DataFrame:
-#         """Lädt Marktdaten aus Cache oder via Norgate."""
-#         if self.is_cache_valid():
-#             logging.info("Lade Daten aus Cache...")
-#             df = pd.read_parquet(self.cache_file)
-            
-#             # Index zu DateTime konvertieren falls nötig
-#             if not isinstance(df.index, pd.DatetimeIndex):
-#                 df.index = pd.to_datetime(df.index) 
-                
-#             return df
-#         else:
-#             logging.info("Aktualisiere Cache mit neuen Daten...")
-#             from utils.data_fetcher import fetch_all_ohlcv_data
-            
-#             # Definiere Zeitraum (z.B. letzten 5 Jahre)
-#             end_date = datetime.now().strftime("%Y-%m-%d")
-#             start_date = (datetime.now().year - 5, "01", "01")
-#             start_date = "-".join(map(str, start_date))
-            
-#             # Hole neue Daten
-#             fetch_all_ohlcv_data(start_date, end_date, str(self.cache_file))
-#             return pd.read_parquet(self.cache_file)
+# Beispiel für die Verwendung
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    
+    # Zeitraum definieren
+    start_date = "2015-04-01"
+    end_date = "2025-04-01"
+    
+    # Beispiel 1: Laden von Daten aus einer bestimmten Watchlist
+    watchlist_name = "S&P 500"
+    mdm = EnhancedMarketDataManager(watchlist_name=watchlist_name)
+    df = mdm.load_market_data(start_date=start_date, end_date=end_date)
+    print(f"Geladen: {len(df)} Zeilen für Watchlist {watchlist_name}")
+    
+    # Beispiel 2: Laden allgemeiner Marktdaten
+    general_mdm = EnhancedMarketDataManager()
+    general_df = general_mdm.load_market_data(start_date=start_date, end_date=end_date)
+    print(f"Geladen: {len(general_df)} Zeilen für allgemeine Marktdaten")
