@@ -2,6 +2,7 @@ import pandas as pd
 import logging
 import norgatedata
 from utils.norgate_database_symbols import get_database_symbols
+from utils.norgate_watchlist_symbols import get_watchlist_symbols
 from typing import Optional, List, Tuple
 
 # Step 1
@@ -102,32 +103,53 @@ def fetch_all_ohlcv_data(start_date: str, end_date: str,
         # logging.info(f"Datensatz enthält {len(final_df)} Zeilen für {len(all_details)} Aktien")
     except Exception as e:
         logging.error(f"Fehler beim Speichern der Daten: {str(e)}")
+
+# Gets all symbols from a specific watchlist
+# Example: Get all symbols from the S&P 500 watchlist
+def fetch_all_ohlcv_data_from_list(watchlist_name: str, start_date: str, end_date: str, save_path: str) -> None:
+    """
+    Lädt OHLCV Daten für alle aktiven Aktien einer Watchliste.
+    
+    Args:
+        watchlist_name: Name der Watchliste
+        start_date: Startdatum (YYYY-MM-DD)
+        end_date: Enddatum (YYYY-MM-DD) 
+        save_path: Speicherpfad für die Parquet-Datei
+    """
+    # Symbole laden
+    symbols = get_watchlist_symbols(watchlist_name)
+
+    # DataFrame für alle Daten
+    all_data = []
+    
+    # Fortschrittsanzeige
+    for i, (symbol) in enumerate(symbols, 1):
+    # for i, (symbol, name) in enumerate(all_symbols, 1):
+        logging.info(f"Fortschritt: {i}/{len(symbols)} ({i/len(symbols)*100:.1f}%)")
         
-# Step 2
+        df = fetch_ohlcv_data(symbol, start_date, end_date)
+        if df is not None:
+            # Firmenname hinzufügen
+            # df['Company_Name'] = name
+            all_data.append(df)
+    
+    if not all_data:
+        logging.error("Keine Daten geladen!")
+        return
+        
+    # Alle Daten zusammenführen
+    final_df = pd.concat(all_data, ignore_index=False)
+    
+    print(f"Inside fetch_all_ohlcv_data_from_list, save_path is: {save_path}")
+    # Daten speichern
+    try:
+        final_df.to_parquet(save_path)
+        logging.info(f"Daten erfolgreich gespeichert unter: {save_path}")
+        logging.info(f"Datensatz enthält {len(final_df)} Zeilen für {len(symbols)} Aktien")
+        # logging.info(f"Datensatz enthält {len(final_df)} Zeilen für {len(all_details)} Aktien")
+    except Exception as e:
+        logging.error(f"Fehler beim Speichern der Daten: {str(e)}")
 
-# aapl_data = download_stock_data('AAPL', start_date, end_date)
-# tsla_data = download_stock_data('TSLA', start_date, end_date)
-# goog_data = download_stock_data('GOOG', start_date, end_date)
-
-# aapl_data.head()
-
-# Step 3
-
-
-# aapl_data = add_security_name('AAPL', aapl_data)
-# tsla_data = add_security_name('TSLA', tsla_data)
-# goog_data = add_security_name('GOOG', goog_data)
-
-# aapl_data.head()
-
-# Step 4
-
-
-# aapl_data = add_sector_info('AAPL', aapl_data)
-# tsla_data = add_sector_info('TSLA', tsla_data)
-# goog_data = add_sector_info('GOOG', goog_data)
-
-# aapl_data.head()
 
 # Step 5
 # Define a function to check if a symbol was part of specific indices
@@ -164,14 +186,6 @@ def fetch_all_ohlcv_data(start_date: str, end_date: str,
     
 #     return data
 
-# aapl_data = check_index_constituency('AAPL', aapl_data)
-# tsla_data = check_index_constituency('TSLA', tsla_data)
-# goog_data = check_index_constituency('GOOG', goog_data)
-
-# aapl_data.head(5)
-
-# Step 6
-
 # Step 7
 # Define a function to filter out non-stock symbols
 # def filter_stocks(symbols):
@@ -183,28 +197,7 @@ def fetch_all_ohlcv_data(start_date: str, end_date: str,
 # delisted_stocks = filter_stocks(delisted_symbols)
 
 # print(f"Active stocks: {len(active_stocks)}, Delisted stocks: {len(delisted_stocks)}")
-
-# # Step 8
-
-
-# # Download all active and delisted stock data
-# logging.info("Downloading active stock data...")
-# all_active_data = download_all_stock_data(active_stocks, start_date, end_date)
-
-# logging.info("Downloading delisted stock data...")
-# all_delisted_data = download_all_stock_data(delisted_stocks, start_date, end_date)
-
-# # Display the number of active and delisted stocks
-# if not all_active_data.empty:
-#     print(f"Downloaded data for {len(all_active_data['Symbol'].unique())} active stocks.")
-# else:
-#     print("No active stock data downloaded.")
-
-# if not all_delisted_data.empty:
-#     print(f"Downloaded data for {len(all_delisted_data['Symbol'].unique())} delisted stocks.")
-# else:
-#     print("No delisted stock data downloaded.")
-    
+  
 # # Step 9
 # # Define a function to add Security Names to the Data
 # def add_security_name(data):
@@ -345,4 +338,5 @@ if __name__ == "__main__":
     end_date = "2025-04-01"    # Anpassen nach Bedarf
     
     # Daten laden
-    fetch_all_ohlcv_data(start_date, end_date)
+    # fetch_all_ohlcv_data(start_date, end_date) # All active and delisted symbols from database
+    fetch_all_ohlcv_data_from_list("S&P 500", start_date, end_date) # All active symbols from specific watchlist
