@@ -175,3 +175,6 @@ cython_debug/
 
 # custom
 *.parquet
+
+# Ignore node_modules directory
+/webapp/frontend/node_modules/
