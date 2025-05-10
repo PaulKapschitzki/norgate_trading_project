@@ -1,15 +1,11 @@
-import sys
-import os
 import logging
 
-# Projektpfad zum Python Path hinzufügen
-project_root = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, project_root)
-
+from config.config import Config
 from strategies.mean_reversion import MeanReversionStrategy
 from backtesting.performance import EnhancedBacktestPerformance
 
-logging.basicConfig(level=logging.INFO)
+# Logging Setup über Config
+Config.setup()
 
 def main():
     # Strategie initialisieren
@@ -21,9 +17,9 @@ def main():
     # Backtest mit individuellen Parametern ausführen
     results = bp.run_backtest(
         strategy=strategy,
-        symbols=['AAPL', 'MSFT', 'GOOGL'],  # Optional: None für alle Symbole
-        start_date='2023-01-01',            # Optional: Individuelles Startdatum
-        end_date='2024-01-01'               # Optional: Individuelles Enddatum
+        # symbols=['AAPL', 'MSFT', 'GOOGL'],  # Optional: None für alle Symbole
+        # start_date='2023-01-01',            # Optional: Individuelles Startdatum
+        # end_date='2024-01-01'               # Optional: Individuelles Enddatum
         )
 
     # Ergebnisse ausgeben
