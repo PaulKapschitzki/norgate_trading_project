@@ -1,17 +1,12 @@
 import os
 import re
-import sys
 import logging
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
 
-# Projektpfad zum Python Path hinzufügen
-project_root = os.path.abspath('e:\\Eigene_Daten\\Programmierung\\Python\\Projects\\norgate_trading_project')
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
+from config.config import Config
 from utils.norgate_watchlist_symbols import get_watchlist_symbols
 
 def sanitize_filename(name: str) -> str:
@@ -37,17 +32,17 @@ class EnhancedMarketDataManager:
         
         Args:
             watchlist_name: Optional, Name der Norgate Watchlist
-            cache_file: Optional, Pfad zur Parquet-Datei (absolute Pfadangabe)
+            cache_file: Optional, Pfad zur Parquet-Datei
             max_age_days: Maximales Alter der Cache-Datei in Tagen
         """
         if cache_file is None:
             if watchlist_name is not None:
                 # Erstelle einen sprechenden Dateinamen für die Watchlist
                 filename = f"{sanitize_filename(watchlist_name)}_data.parquet"
-                cache_file = os.path.join(project_root, 'data', 'raw', filename)
+                cache_file = Config.get_project_path('data', 'raw', filename)
             else:
                 # Standard-Datei für allgemeine Marktdaten
-                cache_file = os.path.join(project_root, 'data', 'raw', 'database_market_data.parquet')
+                cache_file = Config.get_project_path('data', 'raw', 'database_market_data.parquet')
                 
         self.cache_file = Path(cache_file)
         self.max_age_days = max_age_days
