@@ -1,13 +1,22 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .config import settings
+from dotenv import load_dotenv
+import os
 
-SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
+# .env Datei laden
+load_dotenv()
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+# Datenbankverbindung aus .env laden
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Engine erstellen
+engine = create_engine(DATABASE_URL)
+
+# SessionLocal Klasse erstellen
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Base Klasse für Models
 Base = declarative_base()
 
 def get_db():

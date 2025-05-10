@@ -7,7 +7,8 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # Datenbank-Konfiguration
-    DATABASE_URL: str = "postgresql://postgres:IHR_PASSWORT_HIER@localhost:5432/tradermind"
+    # DATABASE_URL: str = "postgresql://postgres:IHR_PASSWORT_HIER@localhost:5432/tradermind"
+    DATABASE_URL: str = "postgresql://postgres:(EEX$service)@localhost:5432/tradermind"
     
     # JWT-Konfiguration für zukünftige Authentifizierung
     SECRET_KEY: str = "your-secret-key-here"
