@@ -23,23 +23,16 @@ def get_watchlist_symbols(watchlist_name: str) -> list:
         # Prüfen ob Norgate Data Utility läuft
         if not norgatedata.status():
             raise ConnectionError("Norgate Data Utility ist nicht aktiv")
-        
-        # Get all active watchlists from norgatedata
+          # Get all active watchlists from norgatedata
         all_watchlists = norgatedata.watchlists()
-        watchlist = None
         
         # Suche nach der gewünschten Watchlist
-        for w in all_watchlists:
-            # Sicherstellen dass w ein Dictionary ist und einen 'name' Key hat
-            if isinstance(w, dict) and 'name' in w:
-                if w['name'] == watchlist_name:
-                    watchlist = w
-                    logging.info(f"Gefundene Watchlist: {watchlist_name}")
-                    break
-        
-        if watchlist is None:
+        if watchlist_name not in all_watchlists:
             logging.error(f"Watchlist: {watchlist_name} nicht gefunden!")
             return []
+            
+        logging.info(f"Gefundene Watchlist: {watchlist_name}")
+  
         
         # Symbole abrufen
         symbols = norgatedata.watchlist_symbols(watchlist_name)
@@ -69,3 +62,6 @@ def main():
         print(f"Symbole in {watchlist_name}: {symbols}")
     else:
         print(f"Keine Symbole gefunden oder Fehler aufgetreten.")
+
+if __name__ == "__main__":
+    main()
