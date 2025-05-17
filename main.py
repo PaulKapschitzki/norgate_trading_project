@@ -43,7 +43,7 @@ def main():
     
     # Strategie testen
     strategy = MeanReversionStrategy()
-    signals = strategy.generate_signals(screened_data)
+    signals = strategy.generate_signals(screening_results)
     
     # Ergebnisse speichern
     output_path = Config.get_output_path('screener_results.parquet')

@@ -197,9 +197,8 @@ const Screener: React.FC = () => {
                 <TableCell component="th" scope="row">
                   {row.symbol}
                 </TableCell>
-                {Object.entries(row.data).map(([key, value]) => (
-                  <TableCell key={key}>
-                    {typeof value === 'number' ? value.toFixed(2) : value.toString()}
+                {Object.entries(row.data).map(([key, value]) => (                  <TableCell key={key}>
+                    {typeof value === 'number' ? value.toFixed(2) : String(value)}
                   </TableCell>
                 ))}
               </TableRow>

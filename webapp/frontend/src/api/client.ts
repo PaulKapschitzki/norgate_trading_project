@@ -11,7 +11,7 @@ export interface BacktestParameters {
 
 export interface ScreenerResultItem {
   symbol: string;
-  data: any;
+  data: Record<string, number | string>;
 }
 
 export interface ScreenerResponse {
