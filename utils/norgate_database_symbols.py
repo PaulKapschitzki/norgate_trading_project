@@ -53,6 +53,34 @@ def count_equity_symbols(symbols: list) -> int:
             
     return counter
 
+def get_active_symbols() -> list:
+    """
+    Holt alle aktiven Aktien-Symbole aus der Norgate Datenbank.
+    
+    Returns:
+        Liste der aktiven Aktien-Symbole
+    """
+    try:
+        # Prüfen ob Norgate Data Utility läuft
+        if not norgatedata.status():
+            raise ConnectionError("Norgate Data Utility ist nicht aktiv")
+        
+        # Aktive Symbole abrufen
+        symbols = norgatedata.symbols(norgatedata.SymbolType.ACTIVE)
+        
+        # Filtere auf Aktien
+        equity_symbols = [
+            symbol for symbol in symbols 
+            if norgatedata.subtype1(symbol) == 'Equity'
+        ]
+        
+        logging.info(f"Erfolgreich {len(equity_symbols)} aktive Aktien-Symbole geladen")
+        return equity_symbols
+        
+    except Exception as e:
+        logging.error(f"Fehler beim Laden der aktiven Symbole: {str(e)}")
+        return []
+
 # def get_symbol_details(symbols: list) -> list:
 #     """
 #     Holt Details (Symbol, Firmenname) für jedes Aktien-Symbol.

@@ -1,54 +1,49 @@
 # main.py
 import os
 import sys
+
+# Setup und Python-Pfad konfigurieren
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 import logging
 from config.config import Config
-from utils.data_fetcher import fetch_and_process_data
+from utils.data_manager import EnhancedMarketDataManager
 from strategies.mean_reversion import MeanReversionStrategy
 from screeners.ema_touch import EmaTouchScreener
-
-# Arbeitsverzeichnis auf das Projekt-Stammverzeichnis setzen
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(project_root)
-
-def setup_logging():
-    logging.basicConfig(
-        level=Config.LOG_LEVEL,
-        format=Config.LOG_FORMAT
-    )
+from screeners.run_screener import run_daily_screening
 
 def main():
     # Setup
-    setup_logging()
     Config.setup()
     
     # Daten laden
     try:
-        merged_data = fetch_and_process_data()
+        # EnhancedMarketDataManager initialisieren
+        mdm = EnhancedMarketDataManager()
+        # Daten laden (verwendet Cache wenn vorhanden, lädt sonst neu)
+        merged_data = mdm.load_market_data()
         logging.info("Daten erfolgreich geladen und verarbeitet")
     except Exception as e:
         logging.error(f"Fehler beim Laden der Daten: {e}")
         return
     
-    # Führe Screening durch
+    # Führe Screening durch und wende Strategie an
     try:
         screening_results = run_daily_screening()
         logging.info(f"Screening gefunden: {len(screening_results)} Aktien")
         
-        # Hier kannst du weitere Verarbeitung hinzufügen
-        # z.B. Strategie-Tests oder WebApp-Updates
+        # Strategie testen
+        strategy = MeanReversionStrategy()
+        signals = strategy.generate_signals(screening_results)
+        
+        # Ergebnisse speichern
+        output_path = Config.get_project_path('data', 'processed', 'screener_results.parquet')
+        signals.to_parquet(output_path)
+        logging.info(f"Ergebnisse gespeichert in {output_path}")
         
     except Exception as e:
-        logging.error(f"Fehler beim Screening: {e}")
-    
-    # Strategie testen
-    strategy = MeanReversionStrategy()
-    signals = strategy.generate_signals(screening_results)
-    
-    # Ergebnisse speichern
-    output_path = Config.get_output_path('screener_results.parquet')
-    signals.to_parquet(output_path)
-    logging.info(f"Ergebnisse gespeichert in {output_path}")
+        logging.error(f"Fehler beim Screening oder der Strategie-Anwendung: {e}")
+        return
 
 if __name__ == "__main__":
     main()

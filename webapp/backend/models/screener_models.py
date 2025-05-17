@@ -1,8 +1,13 @@
 from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from ..database import Base
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional
+from datetime import date
 
+from webapp.backend.database import Base
+
+# SQLAlchemy Models
 class ScreenerRun(Base):
     __tablename__ = "screener_runs"
     
@@ -52,3 +57,23 @@ class BacktestResult(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     backtest_run = relationship("BacktestRun", back_populates="results")
+
+# Pydantic Models für API
+class ScreenerRequest(BaseModel):
+    screener_type: str
+    watchlist_name: Optional[str] = None
+    parameters: Dict[str, Any] = {}
+    start_date: Optional[date] = Field(default=None, description="Startdatum für die Marktdaten")
+    end_date: Optional[date] = Field(default=None, description="Enddatum für die Marktdaten")
+
+class ScreenerResult(BaseModel):
+    symbol: str
+    data: Dict[str, Any]
+
+class ScreenerResponse(BaseModel):
+    id: int
+    screener_type: str
+    watchlist_name: Optional[str]
+    parameters: Dict[str, Any]
+    results: List[ScreenerResult]
+    created_at: datetime

@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 
 import apiClient, { ScreenerResultItem } from '../api/client';
+import { ScreenerControl } from '../components/ScreenerControl';
 
 // Screener Parameter Typen
 interface Roc130Parameters {
@@ -172,40 +173,59 @@ const Screener: React.FC = () => {
 
   // Zeigt die Screener-Ergebnisse in einer Tabelle an
   const renderResults = () => {
-    if (!results) return null;
-
-    // Keine Ergebnisse
-    if (results.length === 0) {
-      return <Alert severity="info">Keine Ergebnisse gefunden.</Alert>;
+    if (loading) {
+      return (
+        <>
+          <ScreenerControl />
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <CircularProgress />
+          </Box>
+        </>
+      );
     }
 
-    // Ergebnisse anzeigen
+    if (error) {
+      return (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      );
+    }
+
+    if (!results) {
+      return null;
+    }
+
     return (
-      <TableContainer component={Paper}>
-        <Table sx={{ minWidth: 650 }} aria-label="Screener Ergebnisse">
-          <TableHead>
-            <TableRow>
-              <TableCell>Symbol</TableCell>
-              {Object.keys(results[0].data).map((key) => (
-                <TableCell key={key}>{key}</TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {results.map((row) => (
-              <TableRow key={row.symbol}>
-                <TableCell component="th" scope="row">
-                  {row.symbol}
-                </TableCell>
-                {Object.entries(row.data).map(([key, value]) => (                  <TableCell key={key}>
-                    {typeof value === 'number' ? value.toFixed(2) : String(value)}
-                  </TableCell>
+      <>
+        <ScreenerControl />
+        <TableContainer component={Paper} sx={{ mt: 2 }}>
+          <Table sx={{ minWidth: 650 }} aria-label="Screener Ergebnisse">
+            <TableHead>
+              <TableRow>
+                <TableCell>Symbol</TableCell>
+                {Object.keys(results[0].data).map((key) => (
+                  <TableCell key={key}>{key}</TableCell>
                 ))}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {results.map((row) => (
+                <TableRow key={row.symbol}>
+                  <TableCell component="th" scope="row">
+                    {row.symbol}
+                  </TableCell>
+                  {Object.entries(row.data).map(([key, value]) => (
+                    <TableCell key={key}>
+                      {typeof value === 'number' ? value.toFixed(2) : String(value)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </>
     );
   };
 
