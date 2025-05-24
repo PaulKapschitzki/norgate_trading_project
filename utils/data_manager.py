@@ -77,32 +77,56 @@ class EnhancedMarketDataManager:
             DataFrame mit Marktdaten
         """
         # Lade alle Daten aus dem Cache
+        df = None
         if self.is_cache_valid():
             logging.info(f"Lade Daten aus Cache: {self.cache_file}")
-            df = pd.read_parquet(self.cache_file)
-            
-            # Index zu DateTime konvertieren falls nötig
-            if not isinstance(df.index, pd.DatetimeIndex):
-                df.index = pd.to_datetime(df.index) 
-        else:
+            try:
+                df = pd.read_parquet(self.cache_file)
+                # Index zu DateTime konvertieren falls nötig
+                if not isinstance(df.index, pd.DatetimeIndex):
+                    df.index = pd.to_datetime(df.index)
+            except Exception as e:
+                logging.error(f"Fehler beim Laden des Cache: {e}")
+                df = None
+        
+        # Wenn Cache nicht gültig oder Laden fehlgeschlagen
+        if df is None:
             logging.info("Aktualisiere Cache mit neuen Daten...")
-            # Importiere mit vollem Pfad
-            from utils.data_fetcher import fetch_all_ohlcv_data, fetch_all_ohlcv_data_from_list
             
             # Definiere Standard-Zeitraum wenn nicht angegeben
             if end_date is None:
                 end_date = datetime.now().strftime("%Y-%m-%d")
             if start_date is None:
                 start_date = f"{datetime.now().year - 5}-01-01"
-            
-            # Hole neue Daten (abhängig davon ob eine Watchlist spezifiziert wurde)
-            if self.watchlist_name:
-                fetch_all_ohlcv_data_from_list(self.watchlist_name, start_date, end_date, str(self.cache_file))
-            else:
-                fetch_all_ohlcv_data(start_date, end_date, str(self.cache_file))
                 
-            df = pd.read_parquet(self.cache_file)
-            
+            try:
+                # Importiere die neue Download-Funktion
+                from utils.data_downloader import download_all_stock_data
+                
+                # Hole Symbole basierend auf Watchlist oder alle verfügbaren
+                symbols_to_download = symbols
+                if symbols_to_download is None and self.watchlist_name:
+                    symbols_to_download = get_watchlist_symbols(self.watchlist_name)
+                
+                # Lade neue Daten mit der neuen Download-Funktion
+                df = download_all_stock_data(symbols_to_download, start_date, end_date)
+                
+                if df.empty:
+                    raise ValueError("Keine Daten heruntergeladen")
+                    
+                # Speichere in Cache
+                df.to_parquet(self.cache_file)
+                logging.info(f"Neue Daten im Cache gespeichert: {self.cache_file}")
+                
+            except Exception as e:
+                logging.error(f"Fehler beim Aktualisieren der Daten: {e}")
+                # Wenn wir hier einen alten Cache haben, versuchen wir ihn zu laden
+                if self.cache_file.exists():
+                    logging.warning("Versuche alten Cache zu laden...")
+                    df = pd.read_parquet(self.cache_file)
+                else:
+                    raise RuntimeError("Keine Daten verfügbar - weder Cache noch Download erfolgreich")
+        
         # Filtere nach Datum wenn angegeben
         if start_date:
             df = df[df.index >= pd.Timestamp(start_date)]

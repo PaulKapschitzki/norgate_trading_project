@@ -1,101 +1,128 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Box, Typography, LinearProgress } from '@mui/material';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Button, Box, Typography, LinearProgress, Alert } from '@mui/material';
 import { Stop as StopIcon } from '@mui/icons-material';
 
+interface ScreenerProgress {
+  total_symbols: number;
+  processed_symbols: number;
+  current_symbol: string | null;
+  error_message?: string | null;
+}
+
 interface ScreenerStatus {
-  status: 'idle' | 'running' | 'stopping' | 'completed';
-  progress: {
-    total_symbols: number;
-    processed_symbols: number;
-    current_symbol: string | null;
-  };
+  status: 'idle' | 'initializing' | 'downloading' | 'screening' | 'running' | 'stopping' | 'completed' | 'error';
+  progress: ScreenerProgress;
   is_running: boolean;
 }
 
 export const ScreenerControl: React.FC = () => {
   const [status, setStatus] = useState<ScreenerStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     try {
       const response = await fetch('/api/screener/status');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       setStatus(data);
+      setError(null);
     } catch (error) {
       console.error('Fehler beim Abrufen des Status:', error);
+      setError('Fehler beim Abrufen des Status');
     }
-  };
+  }, []);
 
   const stopScreener = async () => {
     try {
-      await fetch('/api/screener/stop', { method: 'POST' });
-      // Status sofort aktualisieren
-      fetchStatus();
+      const response = await fetch('/api/screener/stop', { method: 'POST' });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      await fetchStatus();
     } catch (error) {
       console.error('Fehler beim Stoppen des Screeners:', error);
+      setError('Fehler beim Stoppen des Screeners');
     }
   };
 
   useEffect(() => {
-    // Status initial abrufen
     fetchStatus();
-
-    // Status alle 2 Sekunden aktualisieren, wenn der Screener läuft
     const interval = setInterval(() => {
-      if (status?.is_running) {
+      if (status?.status !== 'completed' && status?.status !== 'idle' && status?.status !== 'error') {
         fetchStatus();
       }
-    }, 2000);
+    }, 1000);
 
     return () => clearInterval(interval);
-  }, [status?.is_running]);
+  }, [fetchStatus, status?.status]);
 
-  if (!status) {
-    return null;
-  }
+  const getProgressValue = () => {
+    if (!status || !status.progress.total_symbols) return 0;
+    return (status.progress.processed_symbols / status.progress.total_symbols) * 100;
+  };
 
-  const progress = status.progress.total_symbols > 0
-    ? (status.progress.processed_symbols / status.progress.total_symbols) * 100
-    : 0;
+  const getStatusText = () => {
+    if (!status) return '';
+    switch (status.status) {
+      case 'initializing':
+        return 'Initialisiere Screener...';
+      case 'downloading':
+        return 'Lade Marktdaten herunter...';
+      case 'screening':
+        return 'Führe Screening durch...';
+      case 'stopping':
+        return 'Stoppe Prozess...';
+      case 'completed':
+        return 'Screening abgeschlossen';
+      case 'error':
+        return 'Fehler aufgetreten';
+      default:
+        return status.status;
+    }
+  };
 
   return (
-    <Box sx={{ width: '100%', mt: 2, mb: 2 }}>
-      {status.status !== 'idle' && (
-        <>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>
-              Status: {status.status}
-              {status.progress.current_symbol && ` - ${status.progress.current_symbol}`}
-            </Typography>
-            {status.is_running && (
-              <Button
-                variant="contained"
-                color="error"
-                startIcon={<StopIcon />}
-                onClick={stopScreener}
-                sx={{ ml: 2 }}
-              >
-                Stoppen
-              </Button>
-            )}
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Box sx={{ width: '100%', mr: 1 }}>
-              <LinearProgress 
-                variant="determinate" 
-                value={progress} 
-                color={status.status === 'stopping' ? 'warning' : 'primary'}
-              />
-            </Box>
-            <Box sx={{ minWidth: 35 }}>
-              <Typography variant="body2" color="text.secondary">
-                {Math.round(progress)}%
-              </Typography>
-            </Box>
-          </Box>
-          <Typography variant="caption" color="text.secondary">
-            {status.progress.processed_symbols} von {status.progress.total_symbols} Symbolen verarbeitet
+    <Box>
+      {(error || status?.progress.error_message) && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error || status?.progress.error_message}
+        </Alert>
+      )}
+      
+      {status && status.status !== 'idle' && (
+        <Box>
+          <LinearProgress 
+            variant="determinate" 
+            value={getProgressValue()} 
+            sx={{ mb: 1 }}
+            color={status.status === 'error' ? 'error' : 'primary'}
+          />
+          <Typography variant="body2" gutterBottom>
+            Status: {getStatusText()}
           </Typography>
-        </>
+          {status.progress.current_symbol && (
+            <Typography variant="body2" gutterBottom>
+              Aktuelles Symbol: {status.progress.current_symbol}
+            </Typography>
+          )}
+          <Typography variant="body2" gutterBottom>
+            Fortschritt: {status.progress.processed_symbols} von {status.progress.total_symbols} Symbolen
+            ({Math.round(getProgressValue())}%)
+          </Typography>
+          {(status.status === 'running' || status.status === 'downloading' || status.status === 'screening') && (
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={stopScreener}
+              startIcon={<StopIcon />}
+              sx={{ mt: 1 }}
+            >
+              Stoppen
+            </Button>
+          )}
+        </Box>
       )}
     </Box>
   );

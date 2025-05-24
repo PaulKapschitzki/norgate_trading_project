@@ -9,6 +9,10 @@ class Config:
     RAW_DATA_DIR = os.path.join(DATA_DIR, 'raw')
     PROCESSED_DATA_DIR = os.path.join(DATA_DIR, 'processed')
     
+    # Standard-Screening-Konfiguration
+    DEFAULT_MIN_PRICE = 1.0  # Standard minimaler Preis für das Screening
+    DEFAULT_MIN_VOLUME = 100000  # Standard minimales Volumen für das Screening
+    
     # Daten-Konfiguration
     # START_DATE = "2023-01-01"
     # END_DATE = datetime.datetime.now().strftime("%Y-%m-%d")

@@ -22,13 +22,11 @@ def get_watchlist_symbols(watchlist_name: str) -> list:
     try:
         # Prüfen ob Norgate Data Utility läuft
         if not norgatedata.status():
-            raise ConnectionError("Norgate Data Utility ist nicht aktiv")
-          # Get all active watchlists from norgatedata
+            raise ConnectionError("Norgate Data Utility ist nicht aktiv")        # Get all active watchlists from norgatedata
         all_watchlists = norgatedata.watchlists()
-        
         # Suche nach der gewünschten Watchlist
         if watchlist_name not in all_watchlists:
-            logging.error(f"Watchlist: {watchlist_name} nicht gefunden!")
+            logging.error(f"Watchlist: {watchlist_name} nicht gefunden! Verfügbare Watchlists: {all_watchlists}")
             return []
             
         logging.info(f"Gefundene Watchlist: {watchlist_name}")

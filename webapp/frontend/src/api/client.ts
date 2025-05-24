@@ -47,6 +47,11 @@ export interface BacktestResponse {
   message?: string;
 }
 
+interface WatchlistResponse {
+  id: string;
+  name: string;
+}
+
 class ApiClient {
   private client: AxiosInstance;
 
@@ -60,9 +65,9 @@ class ApiClient {
   }
 
   // Watchlists API
-  public async getWatchlists(): Promise<string[]> {
+  public async getWatchlists(): Promise<WatchlistResponse[]> {
     try {
-      const response: AxiosResponse<string[]> = await this.client.get('/watchlists');
+      const response: AxiosResponse<WatchlistResponse[]> = await this.client.get('/watchlists');
       return response.data;
     } catch (error) {
       console.error('Fehler beim Abrufen der Watchlists:', error);

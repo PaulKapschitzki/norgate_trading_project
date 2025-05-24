@@ -64,6 +64,10 @@ def run_daily_screening(
     process_manager = ScreenerProcess()
     
     try:
+        # Setze initialen Status
+        process_manager.status = "initializing"
+        process_manager.update_progress(0, 0, "Initialisiere Screener...")
+
         # Screener-Klasse dynamisch laden
         screener_class = get_screener_class(screener_type)
         
@@ -78,7 +82,10 @@ def run_daily_screening(
         
         if not symbols:
             logging.error("Keine Symbole gefunden")
+            process_manager.status = "error"
             return None
+            
+        process_manager.update_progress(total_symbols, 0, "Lade Marktdaten...")
         
         # Setze Default-Werte für Datum wenn nicht angegeben
         if end_date is None:
@@ -93,33 +100,49 @@ def run_daily_screening(
             start_date=start_date,
             end_date=end_date
         )
-        
         if market_data.empty:
             logging.error("Keine Marktdaten geladen")
-            return None
-        
-        # Aktualisiere den Fortschritt
-        process_manager.update_progress(
-            total_symbols=total_symbols,
-            processed_symbols=0,
-            current_symbol="Starte Screening..."
-        )
-            
-        # Führe Screening durch
-        results = screener.screen(market_data)
-        
-        # Prüfe, ob der Prozess gestoppt wurde
-        if process_manager.stop_requested:
-            logging.info("Screening-Prozess wurde gestoppt")
+            process_manager.status = "error"
             return None
             
-        # Speichere Ergebnisse
-        output_path = Config.get_project_path('data', 'processed', f'screener_results_{end_date}.parquet')
-        results.to_parquet(output_path)
-        logging.info(f"Screening Ergebnisse gespeichert in: {output_path}")
+        # Starte das eigentliche Screening
+        process_manager.status = "screening"
+        process_manager.update_progress(total_symbols, 0, "Führe Screening durch...")
         
-        return results
+        # Hole nur die Daten vom letzten Tag
+        unique_dates = market_data.index.unique()
+        latest_date = unique_dates[-1]
+        latest_data = market_data[market_data.index == latest_date].copy()
+        
+        # Führe das Screening durch
+        try:
+            results = screener.screen(market_data)
+            
+            if process_manager.stop_requested:
+                logging.info("Screening-Prozess wurde gestoppt")
+                return None
+                
+            # Speichere Ergebnisse
+            output_path = Config.get_project_path('data', 'processed', f'screener_results_{end_date}.parquet')
+            results.to_parquet(output_path)
+            logging.info(f"Screening Ergebnisse gespeichert in: {output_path}")
+            
+            # Setze finalen Status
+            process_manager.status = "completed"
+            process_manager.update_progress(
+                total_symbols=total_symbols,
+                processed_symbols=total_symbols,
+                current_symbol="Screening abgeschlossen"
+            )
+            
+            return results
+            
+        except Exception as e:
+            logging.error(f"Fehler während des Screenings: {e}")
+            process_manager.status = "error"
+            return None
         
     except Exception as e:
         logging.error(f"Fehler beim Screening-Prozess: {e}")
+        process_manager.status = "error"
         return None

@@ -16,9 +16,16 @@ class ScreenerResultItem(BaseModel):
     
 class ScreenerResponse(BaseModel):
     status: str
-    run_id: Optional[int] = None
-    results: Optional[List[ScreenerResultItem]] = None
+    id: int
     message: Optional[str] = None
+    screener_type: str
+    watchlist_name: str
+    parameters: Dict[str, Any]
+    results: List[ScreenerResultItem] = []  # Default leere Liste
+    created_at: datetime = datetime.utcnow()  # Default aktuelles Datum
+    
+    class Config:
+        from_attributes = True
 
 # Backtest-Schemas
 class BacktestRequest(BaseModel):

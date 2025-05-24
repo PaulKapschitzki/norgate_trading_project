@@ -58,22 +58,26 @@ class BacktestResult(Base):
     
     backtest_run = relationship("BacktestRun", back_populates="results")
 
-# Pydantic Models für API
+# Pydantic Models für API Request/Response
 class ScreenerRequest(BaseModel):
     screener_type: str
-    watchlist_name: Optional[str] = None
-    parameters: Dict[str, Any] = {}
-    start_date: Optional[date] = Field(default=None, description="Startdatum für die Marktdaten")
-    end_date: Optional[date] = Field(default=None, description="Enddatum für die Marktdaten")
+    watchlist_name: str
+    parameters: Dict[str, Any]
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
 
-class ScreenerResult(BaseModel):
+class ScreenerResultData(BaseModel):
     symbol: str
     data: Dict[str, Any]
+    created_at: datetime
 
 class ScreenerResponse(BaseModel):
     id: int
     screener_type: str
-    watchlist_name: Optional[str]
+    watchlist_name: str
     parameters: Dict[str, Any]
-    results: List[ScreenerResult]
+    results: List[ScreenerResultData]
     created_at: datetime
+    
+    class Config:
+        from_attributes = True

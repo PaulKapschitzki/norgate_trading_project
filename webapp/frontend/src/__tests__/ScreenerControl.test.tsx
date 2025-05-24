@@ -2,8 +2,6 @@
 /// <reference types="@testing-library/jest-dom" />
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-// import { act } from 'react-dom/test-utils';
-import { act } from 'react';
 import { ScreenerControl } from '../components/ScreenerControl';
 import '@testing-library/jest-dom';
 import { describe, expect, test, jest, beforeEach } from '@jest/globals';
@@ -42,7 +40,8 @@ const mockFetchResponse = (data: Partial<ScreenerStatus>): Promise<Response> => 
   } as Response);
 };
 
-describe('ScreenerControl Component', () => {  beforeEach(() => {
+describe('ScreenerControl Component', () => {
+  beforeEach(() => {
     jest.clearAllMocks();
     // Mock fetch vor jedem Test mit Standardantwort
     global.fetch = jest.fn().mockImplementation(() => 
@@ -56,7 +55,9 @@ describe('ScreenerControl Component', () => {  beforeEach(() => {
         is_running: false
       })
     ) as jest.MockedFunction<typeof fetch>;
-  });  test('zeigt Fortschrittsbalken wenn Screening läuft', async () => {
+  });
+
+  test('zeigt Fortschrittsbalken wenn Screening läuft', async () => {
     const mockStatus: ScreenerStatus = {
       status: 'running',
       progress: {
@@ -74,16 +75,26 @@ describe('ScreenerControl Component', () => {  beforeEach(() => {
 
     render(<ScreenerControl />);
     
-    // Warten auf die asynchrone Statusaktualisierung
+    // Warten auf die asynchrone Statusaktualisierung und UI-Elemente überprüfen
     await waitFor(() => {
-      expect(screen.getByText(/50%/)).toBeInTheDocument();
+      // Prüfe den Fortschritt
+      expect(screen.getByText('Fortschritt: 50 von 100 Symbolen')).toBeInTheDocument();
+      
+      // Prüfe Status und Symbol
+      expect(screen.getByText('Status: running')).toBeInTheDocument();
+      expect(screen.getByText('Aktuelles Symbol: AAPL')).toBeInTheDocument();
+      
+      // Prüfe Fortschrittsbalken
+      const progressBar = screen.getByRole('progressbar');
+      expect(progressBar).toBeInTheDocument();
+      expect(progressBar).toHaveAttribute('aria-valuenow', '50');
+      
+      // Prüfe Stop-Button
+      expect(screen.getByRole('button', { name: /stoppen/i })).toBeInTheDocument();
     });
-    
-    // Prüfen auf weitere UI-Elemente
-    expect(screen.getByText(/AAPL/)).toBeInTheDocument();
-    expect(screen.getByText(/running/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /stoppen/i })).toBeInTheDocument();
-  });  test('Stopp-Button ist klickbar und sendet Request', async () => {
+  });
+
+  test('Stopp-Button ist klickbar und sendet Request', async () => {
     const runningStatus: ScreenerStatus = {
       status: 'running',
       progress: {
@@ -115,8 +126,7 @@ describe('ScreenerControl Component', () => {  beforeEach(() => {
     const stopButton = await waitFor(() => 
       screen.getByRole('button', { name: /stoppen/i })
     );
-    expect(stopButton).toBeInTheDocument();
-
+    
     // Mock für den Stop-Request
     (global.fetch as jest.Mock).mockImplementationOnce(() => 
       Promise.resolve({ ok: true })

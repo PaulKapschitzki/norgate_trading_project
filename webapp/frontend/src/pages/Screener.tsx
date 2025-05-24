@@ -19,10 +19,17 @@ import {
   TableRow,
   CircularProgress,
   Alert,
+  AlertTitle,
 } from '@mui/material';
 
 import apiClient, { ScreenerResultItem } from '../api/client';
 import { ScreenerControl } from '../components/ScreenerControl';
+import axios from 'axios';
+
+interface Watchlist {
+  id: string;
+  name: string;
+}
 
 // Screener Parameter Typen
 interface Roc130Parameters {
@@ -51,7 +58,7 @@ const screenerTypes = [
 ];
 
 const Screener: React.FC = () => {
-  const [watchlists, setWatchlists] = useState<string[]>([]);
+  const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
   const [selectedWatchlist, setSelectedWatchlist] = useState<string>('');
   const [selectedScreenerType, setSelectedScreenerType] = useState<string>('');
   const [parameters, setParameters] = useState<ScreenerParameters>({} as ScreenerParameters);
@@ -66,11 +73,38 @@ const Screener: React.FC = () => {
   useEffect(() => {
     const fetchWatchlists = async () => {
       try {
+        setLoading(true);
+        setError(null);
+        console.log('Starte Abruf der Watchlists...');
         const watchlistsData = await apiClient.getWatchlists();
+        console.log('Erhaltene Watchlists:', watchlistsData);
+        
+        if (!watchlistsData || watchlistsData.length === 0) {
+          setError('Keine Watchlists verfügbar. Bitte stellen Sie sicher, dass Norgate Data korrekt konfiguriert ist.');
+          return;
+        }
+        
         setWatchlists(watchlistsData);
       } catch (err) {
-        setError('Fehler beim Laden der Watchlists.');
-        console.error(err);
+        console.error('Fehler beim Laden der Watchlists:', err);
+        if (axios.isAxiosError(err)) {
+          if (err.response?.status === 503) {
+            setError('Norgate Data Utility ist nicht verfügbar. Bitte stellen Sie sicher, dass der Norgate Data Service läuft und neu starten Sie die Anwendung.');
+          } else {
+            const errorMessage = err.response?.data?.detail || 'Fehler beim Laden der Watchlists.';
+            setError(
+              `Es ist ein Fehler aufgetreten: ${errorMessage}\n` +
+              'Bitte überprüfen Sie:\n' +
+              '1. Läuft der Norgate Data Service?\n' +
+              '2. Ist Ihre Internetverbindung aktiv?\n' +
+              '3. Läuft der Backend-Server?'
+            );
+          }
+        } else {
+          setError('Verbindungsfehler zum Server. Bitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es später erneut.');
+        }
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -236,6 +270,15 @@ const Screener: React.FC = () => {
           Aktien-Screener
         </Typography>
 
+        {error && (
+          <Alert severity="error" sx={{ mb: 4 }}>
+            <AlertTitle>Fehler</AlertTitle>
+            {error.split('\n').map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
+          </Alert>
+        )}
+
         <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
           <Typography variant="h5" gutterBottom>
             Screener-Einstellungen
@@ -250,8 +293,8 @@ const Screener: React.FC = () => {
                   onChange={(e) => setSelectedWatchlist(e.target.value as string)}
                 >
                   {watchlists.map((watchlist) => (
-                    <MenuItem key={watchlist} value={watchlist}>
-                      {watchlist}
+                    <MenuItem key={watchlist.id} value={watchlist.id}>
+                      {watchlist.name}
                     </MenuItem>
                   ))}
                 </Select>

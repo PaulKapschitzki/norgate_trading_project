@@ -3,6 +3,8 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, date
 import importlib
 import logging
+import asyncio
+from fastapi import HTTPException
 
 from ..models.screener_models import ScreenerRun, ScreenerResult
 from ..schemas.screener_schemas import ScreenerResponse, ScreenerResultItem
@@ -14,7 +16,7 @@ from .screener_process import ScreenerProcess
 # Logger konfigurieren
 logger = logging.getLogger(__name__)
 
-def run_screener(
+async def run_screener(
     db: Session,
     watchlist_name: Optional[str],
     screener_type: str,
@@ -37,38 +39,44 @@ def run_screener(
         ScreenerResponse-Objekt mit den Ergebnissen
     """
     try:
-        # Datumsformatierung
-        start_date_str = start_date.strftime("%Y-%m-%d") if start_date else None
-        end_date_str = end_date.strftime("%Y-%m-%d") if end_date else None
-        
         # Process Manager initialisieren
         process_manager = ScreenerProcess()
+        process_manager.status = "initializing"
+        process_manager.update_progress(0, 0, "Initialisiere Screener...")
+        
+        # Speichere initial einen Screener-Lauf in der Datenbank
+        screener_run = ScreenerRun(
+            screener_type=screener_type,
+            watchlist_name=watchlist_name,
+            parameters=parameters
+        )
+        db.add(screener_run)
+        db.commit()
+        db.refresh(screener_run)
+
+        # Konvertiere Datums-Strings
+        start_date_str = start_date.isoformat() if start_date else None
+        end_date_str = end_date.isoformat() if end_date else None
         
         # Screening als asynchronen Prozess starten
-        def screening_process():
-            nonlocal db
+        async def screening_process():
             try:
                 screening_results = run_daily_screening(
                     screener_type=screener_type,
                     parameters=parameters,
                     start_date=start_date_str,
-                    end_date=end_date_str
+                    end_date=end_date_str,
+                    watchlist_name=watchlist_name
                 )
                 
                 if screening_results is None or screening_results.empty:
                     logger.warning("Keine Screening-Ergebnisse gefunden")
+                    process_manager.status = "completed"
+                    process_manager.update_progress(0, 0, "Keine Ergebnisse gefunden")
                     return
                     
-                # Speichere Screener-Lauf in der Datenbank
-                screener_run = ScreenerRun(
-                    screener_type=screener_type,
-                    watchlist_name=watchlist_name,
-                    parameters=parameters
-                )
-                db.add(screener_run)
-                db.commit()
-                
                 # Speichere Ergebnisse
+                result_items = []
                 for symbol in screening_results.index:
                     result = ScreenerResult(
                         screener_run_id=screener_run.id,
@@ -76,22 +84,48 @@ def run_screener(
                         data=screening_results.loc[symbol].to_dict()
                     )
                     db.add(result)
+                    result_items.append(result)
                 
                 db.commit()
                 
             except Exception as e:
                 logger.error(f"Fehler im Screening-Prozess: {e}")
+                process_manager.status = "error"
+                process_manager.update_progress(
+                    0, 0, "Fehler aufgetreten",
+                    error_message=str(e)
+                )
                 db.rollback()
+            finally:
+                if process_manager.status not in ["error", "stopping"]:
+                    process_manager.status = "completed"
         
-        # Starte den Prozess
-        process_manager.start_process(screening_process)
+        # Starte den Prozess asynchron
+        loop = asyncio.get_running_loop()
+        task = loop.create_task(screening_process())
         
-        return {"message": "Screening-Prozess gestartet"}
+        # Setze den aktuellen Prozess
+        process_manager.current_process = task
+        process_manager.status = "running"
+        
+        return ScreenerResponse(
+            id=screener_run.id,
+            screener_type=screener_type,
+            watchlist_name=watchlist_name,
+            parameters=parameters,
+            status="started",
+            message="Screening-Prozess gestartet",
+            results=[],
+            created_at=screener_run.created_at
+        )
             
     except Exception as e:
         logger.error(f"Fehler beim Ausführen des Screeners: {str(e)}")
         db.rollback()
-        raise
+        raise HTTPException(
+            status_code=500,
+            detail=f"Fehler beim Ausführen des Screeners: {str(e)}"
+        )
 
 def get_screener_by_id(db: Session, screener_id: int) -> Optional[ScreenerResponse]:
     """
@@ -142,7 +176,7 @@ def get_all_watchlists() -> List[str]:
     import norgatedata
     try:
         watchlists = norgatedata.watchlists()
-        return [watchlist['name'] for watchlist in watchlists]
+        return watchlists if watchlists else []
     except Exception as e:
         logger.error(f"Fehler beim Abrufen der Watchlists: {str(e)}", exc_info=True)
         return []
