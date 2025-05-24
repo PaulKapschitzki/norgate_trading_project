@@ -179,3 +179,4 @@ Befehle.txt
 
 # Ignore node_modules directory
 /webapp/frontend/node_modules/
+/node_modules/

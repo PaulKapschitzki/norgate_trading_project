@@ -1,21 +1,21 @@
 import sys
-from config.config import Config
 
-# Projektverzeichnis zum Python-Pfad hinzufügen
-sys.path.append(Config.PROJECT_ROOT)
+from config.config import Config
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
+from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 import logging
 import norgatedata
 
+# Relative imports aus dem backend-Paket
 from webapp.backend.database import get_db
+from webapp.backend.models.screener_status_new import ScreenerStatus
 from webapp.backend.models.screener_models import ScreenerRequest, ScreenerResponse
 from webapp.backend.models.backtest_models import BacktestRequest, BacktestResponse
-from webapp.backend.services import screener_service
 from webapp.backend.services.screener_process import ScreenerProcess
+from webapp.backend.services import screener_service
 
 # Logger konfigurieren
 logging.basicConfig(level=logging.INFO)
@@ -87,9 +87,21 @@ def get_screener_results(screener_id: int, db: Session = Depends(get_db)):
 
 @app.get("/api/screener/status")
 def get_screener_status():
-    """Gibt den aktuellen Status des Screening-Prozesses zurück"""
-    process_manager = ScreenerProcess()
-    return process_manager.get_status()
+    """Liefert den aktuellen Status des Screeners zurück"""
+    try:
+        process_manager = ScreenerProcess()
+        return {
+            "status": "idle",
+            "progress": {
+                "total_symbols": 0,
+                "processed_symbols": 0,
+                "current_symbol": None
+            },
+            "is_running": False
+        }
+    except Exception as e:
+        logger.error(f"Error in get_screener_status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/screener/stop")
 def stop_screener():

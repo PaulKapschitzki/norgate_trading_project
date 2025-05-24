@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "cd webapp/backend; uvicorn main:app --reload --port 8000",
+    "start:frontend": "cd webapp/frontend; npm start"
+  },
+  "devDependencies": {
+    "@types/testing-library__react": "^10.0.1"
+  }
+}

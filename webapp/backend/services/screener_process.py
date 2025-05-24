@@ -2,6 +2,7 @@
 import threading
 from typing import Optional, Dict, Any
 import logging
+from webapp.backend.models.screener_status_new import ScreenerStatus
 
 logger = logging.getLogger(__name__)
 
@@ -68,16 +69,22 @@ class ScreenerProcess:
 
     def update_progress(self, total_symbols: int, processed_symbols: int, current_symbol: str):
         """Aktualisiert den Fortschritt des Screenings"""
-        self.progress = {
-            "total_symbols": total_symbols,
-            "processed_symbols": processed_symbols,
-            "current_symbol": current_symbol
-        }
+        with self._process_lock:
+            self.progress = {
+                "total_symbols": total_symbols,
+                "processed_symbols": processed_symbols,
+                "current_symbol": current_symbol
+            }
 
-    def get_status(self) -> Dict[str, Any]:
-        """Gibt den aktuellen Status des Screening-Prozesses zurück"""
-        return {
-            "status": self.status,
-            "progress": self.progress,
-            "is_running": bool(self.current_process and self.current_process.is_alive())
-        }
+    def get_status_response(self) -> dict:
+        """Liefert den aktuellen Status im korrekten Format zurück"""
+        with self._process_lock:
+            return {
+                "status": self.status,
+                "progress": {
+                    "total_symbols": self.progress["total_symbols"],
+                    "processed_symbols": self.progress["processed_symbols"],
+                    "current_symbol": self.progress.get("current_symbol")
+                },
+                "is_running": bool(self.current_process and self.current_process.is_alive())
+            }

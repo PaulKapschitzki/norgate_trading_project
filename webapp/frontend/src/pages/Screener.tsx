@@ -239,13 +239,12 @@ const Screener: React.FC = () => {
         <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
           <Typography variant="h5" gutterBottom>
             Screener-Einstellungen
-          </Typography>
-
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Watchlist</InputLabel>
+          </Typography>          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel id="watchlist-label">Watchlist</InputLabel>
                 <Select
+                  labelId="watchlist-label"
                   value={selectedWatchlist}
                   label="Watchlist"
                   onChange={(e) => setSelectedWatchlist(e.target.value as string)}
@@ -259,10 +258,11 @@ const Screener: React.FC = () => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Screener-Typ</InputLabel>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel id="screener-type-label">Screener-Typ</InputLabel>
                 <Select
+                  labelId="screener-type-label"
                   value={selectedScreenerType}
                   label="Screener-Typ"
                   onChange={(e) => setSelectedScreenerType(e.target.value as string)}
@@ -274,30 +274,34 @@ const Screener: React.FC = () => {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
+            </Grid>            <Grid item xs={12} md={6}>
               <TextField
-                margin="normal"
                 fullWidth
                 label="Start-Datum (YYYY-MM-DD)"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} md={6}>
               <TextField
-                margin="normal"
                 fullWidth
                 label="End-Datum (YYYY-MM-DD)"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              {renderParameterInputs()}
+              <Box sx={{ mb: 2 }}>
+                {renderParameterInputs()}
+              </Box>
             </Grid>
 
             <Grid item xs={12}>
@@ -307,6 +311,7 @@ const Screener: React.FC = () => {
                 onClick={runScreener}
                 disabled={loading}
                 fullWidth
+                sx={{ mt: 2 }}
               >
                 {loading ? <CircularProgress size={24} /> : 'Screener ausführen'}
               </Button>
