@@ -22,25 +22,60 @@ class EmaTouchScreener(BaseScreener):
             touch_threshold: Maximale Entfernung vom EMA in Prozent
             required_indices: Liste der Indizes, in denen die Aktie sein muss
         """
-        super().__init__("EMA Touch", min_price=min_price, min_volume=min_volume)
+        super().__init__("EMA Touch", min_price=min_price, min_volume=min_volume)        
         self.ema_period = ema_period
         self.touch_threshold = touch_threshold
-        self.required_indices = required_indices or ['S&P 500', 'Russell 3000']
+        self.required_indices = required_indices if required_indices else []
         self.processed_symbols = 0
+
+    def check_index_membership(self, symbol: str, data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Prüft die Index-Zugehörigkeit eines Symbols und fügt die Information dem DataFrame hinzu.
         
-    def check_index_membership(self, symbol: str) -> Dict[str, bool]:
-        """Prüft die Index-Zugehörigkeit eines Symbols."""
-        memberships = {}
+        Args:
+            symbol: Das zu prüfende Symbol
+            data: DataFrame mit den Marktdaten für das Symbol
+            
+        Returns:
+            DataFrame mit zusätzlichen Index-Zugehörigkeitsspalten
+        """
         for index_name in self.required_indices:
             try:
-                # constituent gibt True zurück wenn das Symbol im Index ist
-                is_member = bool(norgatedata.constituent(index_name, symbol))
-                memberships[index_name] = is_member
+                logging.info(f"Prüfe ob {symbol} Teil von {index_name} ist...")
+                
+                # Hole die Index-Mitgliedschaft als Zeitreihe
+                index_data = norgatedata.index_constituent_timeseries(
+                    symbol,
+                    index_name,
+                    padding_setting=norgatedata.PaddingType.NONE,
+                    pandas_dataframe=data.copy(),  # Übergebe eine Kopie des existierenden DataFrames
+                    timeseriesformat='pandas-dataframe'
+                )
+                
+                column_name = f'In_{index_name.replace(" ", "_")}'
+                
+                if column_name in data.columns:
+                    logging.info(f"Spalte {column_name} existiert bereits. Überspringe...")
+                    continue
+                
+                if 'Index Constituent' in index_data.columns:
+                    # Benenne die 'Index Constituent' Spalte um
+                    index_data.rename(columns={'Index Constituent': column_name}, inplace=True)
+                    
+                    # Füge die umbenannte Spalte dem originalen DataFrame hinzu
+                    data[column_name] = index_data[column_name]
+                else:
+                    logging.warning(f"'Index Constituent' Spalte nicht gefunden für {symbol} in {index_name}")
+                    # Setze die Spalte auf False wenn keine Daten verfügbar sind
+                    data[column_name] = False
+                    
             except Exception as e:
                 logging.warning(f"Fehler bei Index-Prüfung für {symbol} in {index_name}: {e}")
-                memberships[index_name] = False
-        return memberships
-    
+                column_name = f'In_{index_name.replace(" ", "_")}'
+                data[column_name] = False
+                
+        return data
+
     def screen(self, data: pd.DataFrame) -> pd.DataFrame:
         """
         Führt das Screening durch.
@@ -51,61 +86,71 @@ class EmaTouchScreener(BaseScreener):
         Returns:
             DataFrame mit gefilterten Aktien
         """
+        # Erstelle eine Kopie der Daten zu Beginn
+        working_data = data.copy()
+        
         # Reset index, um Timestamp-Probleme zu vermeiden
-        if isinstance(data.index, pd.DatetimeIndex):
-            data = data.reset_index()
+        if isinstance(working_data.index, pd.DatetimeIndex):
+            working_data = working_data.reset_index()
             
         # Grundlegende Filterung
-        filtered_data = self.filter_basic_criteria(data)
+        working_data = self.filter_basic_criteria(working_data)
         
-        # Berechne EMA
-        filtered_data['EMA'] = ta.trend.ema_indicator(
-            filtered_data['Close'], 
+        # Berechne technische Indikatoren
+        working_data.loc[:, 'EMA'] = ta.trend.ema_indicator(
+            working_data['Close'], 
             window=self.ema_period
         )
         
         # Berechne relative Distanz zum EMA
-        filtered_data['EMA_Distance'] = abs(filtered_data['Low'] - filtered_data['EMA']) / filtered_data['EMA']
+        working_data.loc[:, 'EMA_Distance'] = abs(working_data['Low'] - working_data['EMA']) / working_data['EMA']
         
-        # Berechne technische Indikatoren
-        filtered_data['RSI'] = ta.momentum.rsi(filtered_data['Close'])
-        filtered_data['MACD'] = ta.trend.macd_diff(filtered_data['Close'])
+        working_data.loc[:, 'RSI'] = ta.momentum.rsi(working_data['Close'])
+        working_data.loc[:, 'MACD'] = ta.trend.macd_diff(working_data['Close'])
         
         # Identifiziere EMA-Berührungen mit Threshold
-        filtered_data['EMA_Touch'] = (
-            (filtered_data['Low'] <= filtered_data['EMA']) &
-            (filtered_data['Close'] > filtered_data['EMA']) &
-            (filtered_data['EMA_Distance'] <= self.touch_threshold)
+        working_data.loc[:, 'EMA_Touch'] = (
+            (working_data['Low'] <= working_data['EMA']) &
+            (working_data['Close'] > working_data['EMA']) &
+            (working_data['EMA_Distance'] <= self.touch_threshold)
         )
         
         # Kombiniere alle Filterkriterien
         mask = (
-            filtered_data['EMA_Touch'] &
-            (filtered_data['RSI'] < 70) &  # Nicht überkauft
-            (filtered_data['MACD'] > 0)    # Positiver MACD
+            working_data['EMA_Touch'] &
+            (working_data['RSI'] < 70) &  # Nicht überkauft
+            (working_data['MACD'] > 0)    # Positiver MACD
         )
         
         # Finale Filterung
-        result = filtered_data[mask].copy()
+        result = working_data[mask]
         
         # Aktualisiere Fortschritt für jedes Symbol
-        unique_symbols = filtered_data['Symbol'].unique()
+        unique_symbols = result['Symbol'].unique()
         total_symbols = len(unique_symbols)
         
         # Prüfe Index-Zugehörigkeit für die gefilterten Symbole
         if not result.empty:
-            unique_filtered_symbols = result['Symbol'].unique()
-            for symbol in unique_filtered_symbols:
+            # Temporärer DataFrame für die Endergebnisse
+            final_result = pd.DataFrame()
+            
+            for symbol in unique_symbols:
                 if self.check_stop_requested():
                     logging.info("Screening wurde gestoppt")
                     return pd.DataFrame()
                     
                 self.update_progress(total_symbols, symbol)
                 
-                memberships = self.check_index_membership(symbol)
-                # Füge Index-Zugehörigkeit als Spalten hinzu
-                for index, is_member in memberships.items():
-                    col_name = f'In_{index.replace(" ", "_")}'
-                    result.loc[result['Symbol'] == symbol, col_name] = is_member
+                # Hole die Symbol-spezifischen Daten
+                symbol_data = result[result['Symbol'] == symbol]
+                
+                # Prüfe Index-Zugehörigkeit und aktualisiere die Daten
+                symbol_data = self.check_index_membership(symbol, symbol_data)
+                
+                # Füge die Daten zum Endergebnis hinzu
+                final_result = pd.concat([final_result, symbol_data])
+            
+            # Ersetze das ursprüngliche result mit dem aktualisierten DataFrame
+            result = final_result
         
         return result.sort_values('Volume', ascending=False)

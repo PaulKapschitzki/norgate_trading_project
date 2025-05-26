@@ -12,6 +12,7 @@ from utils.norgate_watchlist_symbols import get_watchlist_symbols
 from utils.data_manager import EnhancedMarketDataManager
 from screeners.run_screener import run_daily_screening
 from .screener_process import ScreenerProcess
+from utils.json_helpers import prepare_df_for_json
 
 # Logger konfigurieren
 logger = logging.getLogger(__name__)
@@ -74,14 +75,15 @@ async def run_screener(
                     process_manager.status = "completed"
                     process_manager.update_progress(0, 0, "Keine Ergebnisse gefunden")
                     return
-                    
-                # Speichere Ergebnisse
+                      # Speichere Ergebnisse
                 result_items = []
-                for symbol in screening_results.index:
+                # Konvertiere DataFrame zu JSON-serialisierbarem Format
+                for symbol in screening_results['Symbol'].unique():
+                    symbol_data = screening_results[screening_results['Symbol'] == symbol]
                     result = ScreenerResult(
                         screener_run_id=screener_run.id,
                         symbol=symbol,
-                        data=screening_results.loc[symbol].to_dict()
+                        data=prepare_df_for_json(symbol_data)
                     )
                     db.add(result)
                     result_items.append(result)
